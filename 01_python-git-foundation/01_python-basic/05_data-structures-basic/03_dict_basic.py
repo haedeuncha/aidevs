@@ -12,7 +12,10 @@ dict 형태로 자주 다룹니다.
 """
 
 # 중괄호 { }를 사용해 dict를 만듭니다.
-student = {
+# JSON(JavaScript Object Notation)과 모양이 비슷합니다.
+# dict는 파이썬 backend에서 JSON 데이터를 다룰 때 자주 사용합니다.
+# JSON은 Frontend와 Backend 사이에서 데이터를 주고받을 때 사용하는 데이터 형식입니다.
+student: dict[str, object] = {
     "name": "Jean",
     "score": 95,
     "passed": True,
@@ -34,7 +37,7 @@ student["score"] = 98
 print("점수 수정 후:", student)
 
 # get()은 key가 없을 때 오류 대신 기본값을 사용할 수 있게 해 줍니다.
-email = student.get("email", "이메일 없음")
+email = student.get("email", )
 print("이메일:", email)
 
 print("\n[dict 전체 출력]")
@@ -48,3 +51,9 @@ print("\nkey 목록:", list(student.keys()))
 
 # values()는 value만 꺼냅니다.
 print("value 목록:", list(student.values()))
+
+# keys()는 key만 꺼냅니다.
+print("\nkey 목록:", tuple(student.keys()))
+
+# values()는 value만 꺼냅니다.
+print("value 목록:", tuple(student.values()))

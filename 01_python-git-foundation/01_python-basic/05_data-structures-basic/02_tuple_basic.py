@@ -10,6 +10,7 @@ tuple은 한 번 만들면 값을 수정할 수 없습니다.
 """
 
 # 소괄호 ( )를 사용해 tuple을 만듭니다.
+# []
 point = (10, 20)
 
 print("좌표:", point)
@@ -30,6 +31,9 @@ for value in point:
 # tuple unpacking은 tuple 안의 값을 여러 변수에 나누어 담는 문법입니다.
 name_and_score = ("Jean", 95)
 name, score = name_and_score
+
+name, score = ("Jean", 95)  # tuple unpacking
+
 
 print("\n이름:", name)
 print("점수:", score)
