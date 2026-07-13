@@ -33,14 +33,14 @@ user = {
 print_user(user)
 
 
-def filter_passed_students(students):
-    passed_students = []
+def filter_passed_students(students:list)->tuple:
+    passed_students = list()
 
     for student in students:
         if student["score"] >= 60:
             passed_students.append(student)
 
-    return passed_students
+    return tuple(passed_students)
 
 
 students = [

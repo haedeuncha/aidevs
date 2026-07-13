@@ -10,22 +10,11 @@
 """
 
 
-def calculate(a, b, operator):
-    if operator == "+":
-        return a + b
-
-    if operator == "-":
-        return a - b
-
-    if operator == "*":
-        return a * b
-
-    if operator == "/":
-        if b == 0:
-            return "0으로 나눌 수 없습니다."
-        return a / b
-
-    return "지원하지 않는 연산자입니다."
+def calculate(a:int, b:int, operator:str)->float:
+    result = 0
+    
+    return result
+   
 
 
 print("계산 함수 테스트")

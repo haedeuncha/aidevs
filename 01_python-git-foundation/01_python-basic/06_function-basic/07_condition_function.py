@@ -5,7 +5,7 @@
 """
 
 
-def get_grade(score):
+def get_grade(score)->str:
     if score >= 90:
         return "A"
 
@@ -18,7 +18,7 @@ def get_grade(score):
     return "D"
 
 
-def is_passed(score):
+def is_passed(score)-> bool:
     return score >= 60
 
 
