@@ -16,7 +16,7 @@ def validate_question(question: str) -> str:
     """질문이 비어 있으면 ValueError를 발생시킵니다."""
     cleaned = question.strip()
     if cleaned == "":
-        return None
+        raise ValueError("문제 생김")
     return cleaned
 
 
@@ -24,12 +24,11 @@ def main() -> None:
     questions = ["FastAPI란?", "   ", "Supabase란?"]
 
     for question in questions:
-        cleaned_question = validate_question(question)
-        if cleaned_question == None:
-            print("비정상 입니다.")
-        else:
-            print("정상 질문:", cleaned_question)
-
-
+        try:
+            cleaned_question = validate_question(question)
+        except ValueError:
+            print("비정상")
+            break
+        print("정상 질문:", cleaned_question)
 
 main()

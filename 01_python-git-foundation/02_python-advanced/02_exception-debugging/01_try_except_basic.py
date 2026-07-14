@@ -11,22 +11,30 @@ r"""try/except 기본 예제입니다.
 """
 
 
-def to_int_or_default(value: str, default: int = 0) -> int:
+def to_int_or_default(value: str) -> int:
     """문자열을 int로 바꾸고, 실패하면 기본값을 반환합니다."""
-
     try:
-        return int(value)
-    except ValueError:
-        print(f"'{value}'는 숫자로 바꿀 수 없습니다. 기본값 {default}을 사용합니다.")
-        return default
+        result = int(value)
+    except:
+        return None
+    return result
 
+def dvided(num1:int, num2:int) ->float:
+    try:
+        result = num1 / num2
+    except:
+        return None
+    return result
 
 def main() -> None:
-    values = ["10", "abc", "30"]
+    values = ["10", "a", "30"]
 
     for value in values:
         number = to_int_or_default(value)
         print("변환 결과:", number)
+
+    result = dvided(10,2)
+    print(result)
 
 
 main()

@@ -24,27 +24,27 @@ def read_json_safely(file_name: str) -> dict:
 
     오류가 나면 프로그램을 바로 종료하지 않고 빈 dict를 반환합니다.
     """
-
     file_path = CURRENT_DIR / file_name
-
     try:
         text = file_path.read_text(encoding="utf-8")
-        return json.loads(text)
     except FileNotFoundError:
-        print(f"파일을 찾을 수 없습니다: {file_path}")
-        return {}
-    except json.JSONDecodeError as error:
-        print(f"JSON 문법이 올바르지 않습니다: {file_path}")
-        print("오류 위치:", error)
-        return {}
+        raise FileNotFoundError("파일이 없어요")
+    # JSON 파일을 Dict로 변경
+    return json.loads(text)
+
 
 
 def main() -> None:
-    for file_name in ["config.json", "missing.json", "broken_config.json"]:
-        print()
-        print("읽는 파일:", file_name)
-        config = read_json_safely(file_name)
-        print("읽은 결과:", config)
+    # file1 = read_json_safely("config.json")
+    # print(file1)
+    # print(type(file1))
+    # print(file1["app_name"])
+    try:
+        file = read_json_safely("config.json")
+    except FileNotFoundError:
+        print("파일이 없습니다")
+        return
+    print(file)
 
 
 main()
