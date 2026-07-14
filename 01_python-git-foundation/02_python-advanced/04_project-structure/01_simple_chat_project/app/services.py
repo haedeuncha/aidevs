@@ -21,8 +21,12 @@ def create_mock_answer(question: str) -> str:
 
 
 def create_chat_message(question: str) -> ChatMessage:
-    """질문을 받아 ChatMessage object를 만듭니다."""
-
+    """
+    질문을 받아 ChatMessage object를 만듭니다.\n
+    네트워크가 끊어지면 ConnectionRefusedError 발생
+    """
+    if question == "1":
+        raise ConnectionRefusedError("Error")
     answer = create_mock_answer(question)
 
     return ChatMessage(

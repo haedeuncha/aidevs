@@ -26,10 +26,12 @@ def main() -> None:
             break
         print(f"질문: {question}")
         print("LLM이 처리 중입니다. .............")
-        message = create_chat_message(question)
-        print()
-        print(f"답변:  ({message.msg}  {message.model}) {message.answer}")
-        print()
-
+        try:
+            message = create_chat_message(question)
+            print()
+            print(f"답변:  ({message.msg}  {message.model}) {message.answer}")
+            print()
+        except ConnectionRefusedError:
+            print("네트워크가 불안합니다. 다시 시도하세요")
 
 main()
