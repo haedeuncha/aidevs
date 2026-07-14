@@ -26,7 +26,6 @@ def create_chat_message(question: str) -> ChatMessage:
     answer = create_mock_answer(question)
 
     return ChatMessage(
-        question=question,
         answer=answer,
-        model="practice-model",
+        model="GPT5",
     )

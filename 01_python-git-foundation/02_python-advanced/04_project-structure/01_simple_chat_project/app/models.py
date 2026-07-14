@@ -19,6 +19,6 @@ from dataclasses import dataclass
 class ChatMessage:
     """질문과 답변 하나를 담는 단순한 데이터 object입니다."""
 
-    question: str
     answer: str
     model: str
+    msg: str = "OK"

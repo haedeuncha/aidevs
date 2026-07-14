@@ -28,11 +28,8 @@ def main() -> None:
         print("LLM이 처리 중입니다. .............")
         message = create_chat_message(question)
         print()
-        print("답변:")
-        print(message.answer)
+        print(f"답변:  ({message.msg}  {message.model}) {message.answer}")
         print()
-        print("사용 모델:")
-        print(message.model)
 
 
 main()
