@@ -15,6 +15,7 @@ from myteam.llm import build_chat_response as chat_response
 
 
 def main() -> None:
+
     msg = input("뭐가 궁금해 ? ")
 
     if msg == "":

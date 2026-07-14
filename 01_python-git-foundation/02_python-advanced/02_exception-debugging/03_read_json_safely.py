@@ -11,46 +11,19 @@ r"""JSON 파일을 안전하게 읽는 예제입니다.
     2. 파일이 없을 때의 오류를 처리합니다.
     3. JSON 문법이 깨졌을 때의 오류를 처리합니다.
 """
-
 import json
-from pathlib import Path
 
-
-CURRENT_DIR = Path(__file__).parent
-
-
-def read_json_safely(file_name: str) -> dict:
-    """JSON 파일을 읽고 dict로 반환합니다.
-
-    오류가 나면 프로그램을 바로 종료하지 않고 빈 dict를 반환합니다.
-    """
-    file_path = CURRENT_DIR / file_name
-    try:
-        text = file_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        raise FileNotFoundError("파일이 없어요")
-
-    try:
-        # JSON 파일을 Dict로 변경
-        return json.loads(text)
-    except json.decoder.JSONDecodeError as error:
-        raise error
+from mypackage.file import read_json_safely
 
 
 def main() -> None:
-    # file1 = read_json_safely("config.json")
-    # print(file1)
-    # print(type(file1))
-    # print(file1["app_name"])
     try:
-        file = read_json_safely("broken_config.json")
+        file = read_json_safely("aa.json")
+        print(file)
     except FileNotFoundError:
         print("파일이 없습니다")
-        return
     except json.decoder.JSONDecodeError:
         print("파일이 문제가 있네요 확인 하세요")
-        return
-    print(file)
 
 
 main()

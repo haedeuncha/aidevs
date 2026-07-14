@@ -20,19 +20,18 @@ from app.services import create_chat_message
 
 
 def main() -> None:
-    while True:
-        question = input(" 질문하세요? ")
-        if question == "q":
-            break
-        print(f"질문: {question}")
-        print("LLM이 처리 중입니다. .............")
-        message = create_chat_message(question)
-        print()
-        print("답변:")
-        print(message.answer)
-        print()
-        print("사용 모델:")
-        print(message.model)
+    question = "프로젝트 구조는 왜 나누나요?"
+
+    message = create_chat_message(question)
+
+    print("질문:")
+    print(message.question)
+    print()
+    print("답변:")
+    print(message.answer)
+    print()
+    print("사용 모델:")
+    print(message.model)
 
 
 main()
