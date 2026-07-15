@@ -25,6 +25,8 @@ from pydantic import BaseModel, Field
 app = FastAPI(title="HTTP Method Practice")
 
 
+
+
 class MemoCreate(BaseModel):
     """POST 요청에서 받을 메모 데이터 형식입니다."""
 
@@ -55,7 +57,7 @@ next_memo_id = 2
 
 # @app.get은 GET 요청을 처리하는 API 주소를 만듭니다.
 # GET은 서버에 있는 데이터를 조회할 때 사용합니다.
-@app.get("/memos")
+@app.get("/memos/list")
 def list_memos():
     """전체 메모 목록을 조회합니다."""
 
@@ -67,12 +69,13 @@ def list_memos():
 # @app.post는 POST 요청을 처리합니다.
 # POST는 새 데이터를 만들 때 사용합니다.
 # status_code=201은 "새 리소스를 만들었다"는 의미의 HTTP 상태 코드입니다.
-@app.post("/memos", status_code=201)
+@app.post("/memos/create", status_code=201)
 def create_memo(memo: MemoCreate):
     """새 메모를 생성합니다."""
-
+    print(memo.content)
+    print(memo.title)
     # 함수 안에서 바깥쪽 next_memo_id 값을 수정하려면 global이 필요합니다.
-    global next_memo_id
+    global next_memo_id # 2
 
     # FastAPI는 요청 JSON을 MemoCreate 모델로 검증한 뒤 memo 인자에 넣어 줍니다.
     # memo.title, memo.content처럼 객체 속성으로 값을 꺼낼 수 있습니다.
@@ -86,7 +89,7 @@ def create_memo(memo: MemoCreate):
     # 다음 생성 요청에서 겹치지 않는 id를 쓰기 위해 1 증가시킵니다.
     next_memo_id += 1
 
-    return {"message": "memo created", "data": new_memo}
+    return {"message": "memo created"}
 
 
 # @app.put은 PUT 요청을 처리합니다.
@@ -118,7 +121,9 @@ def delete_memo(memo_id: int):
 
     # 없는 메모를 삭제하려고 하면 404로 알려줍니다.
     if memo_id not in memos:
-        raise HTTPException(status_code=404, detail="Memo not found")
+        print(f"{memo_id}는 없습니다 ........")
+        return
+        # raise HTTPException(status_code=404, detail="Memo not found")
 
     # pop은 dict에서 값을 꺼내면서 동시에 삭제합니다.
     # 삭제한 데이터를 응답에 포함하면 무엇이 삭제됐는지 확인하기 쉽습니다.
