@@ -11,7 +11,7 @@ from fastapi import FastAPI
 # FastAPI 객체는 API 서버의 중심입니다.
 # app이라는 이름은 uvicorn main:app 명령에서 사용하는 app과 연결됩니다.
 app = FastAPI(
-    title="Hello FastAPI",
+    title="JMLEE FastAPI",
     description="FastAPI 서버가 어떻게 시작되는지 확인하는 첫 예제입니다.",
     version="1.0.0",
 )
@@ -33,3 +33,9 @@ def health_check() -> dict[str, str]:
     """서버가 살아 있는지 확인하는 가장 기본적인 점검용 API입니다."""
 
     return {"status": "ok"}
+
+    
+@app.get("/search")
+def health_check() -> dict[str, str]:
+    """서버가 살아 있는지 확인하는 가장 기본적인 점검용 API입니다."""
+    return {"status": "search ok"}
