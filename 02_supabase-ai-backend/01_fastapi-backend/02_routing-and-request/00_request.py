@@ -19,6 +19,7 @@ def health():
     return {"msg":"OK"}
 
 # Request Body
+# insert, update
 @app.post("/register")
 def register(customer:Customer):
     print(customer.id)
@@ -40,3 +41,19 @@ def get(input_id : str):
         age = 20
     )
     return {"data":customer_detail}
+
+
+# Query Parameter
+# 검색
+@app.get("/search")
+def search(
+    id : str,
+    name : str,
+    age : int
+):
+    print(f"{id}로 검색 합니다.")
+    print(f"{name}로 검색 합니다.")
+    print(f"{age}로 검색 합니다.")
+    
+    return {"result":"검색 결과"}
+
