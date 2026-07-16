@@ -17,5 +17,8 @@
       "envManager": "ms-python.python:venv",
       "packageManager": "ms-python.python:pip"
     }
+  ],
+  "python.analysis.extraPaths": [
+    "./05_llm-agent-orchestration/02_prompt-and-response-quality/02_structured-output-json/02_structured-output-"
   ]
 }
