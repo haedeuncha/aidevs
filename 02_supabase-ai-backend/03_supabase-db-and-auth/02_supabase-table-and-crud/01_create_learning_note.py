@@ -19,10 +19,16 @@ def main() -> None:
     result = (
         supabase.table("learning_notes")
         .insert(
-            {
-                "title": "Supabase create practice",
-                "content": "01_create_learning_note.py에서 생성한 학습 메모입니다.",
-            }
+            [
+                {
+                    "title": "title1",
+                    "content": "content1",
+                },
+                {
+                    "title": "title2",
+                    "content": "content2",
+                }
+            ]
         )
         .execute()
     )
@@ -30,6 +36,7 @@ def main() -> None:
     if not result.data:
         raise RuntimeError("insert 결과가 비어 있습니다. learning_notes 테이블과 권한을 확인하세요.")
 
+    # [{}]
     created = result.data[0]
     print("[created note]")
     print(f"id: {created.get('id')}")
