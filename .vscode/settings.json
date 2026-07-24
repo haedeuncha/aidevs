@@ -1,7 +1,7 @@
 {
   "python.terminal.activateEnvironment": true,
   "python.terminal.activateEnvInCurrentTerminal": true,
-  "python.defaultInterpreterPath": "${workspaceFolder}\.venv\Scripts\python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
   "terminal.integrated.profiles.windows": {
     "PowerShell (venv)": {
       "source": "PowerShell",
@@ -13,13 +13,6 @@
     }
   },
   "terminal.integrated.defaultProfile.windows": "PowerShell (venv)",
-  "python-envs.pythonProjects": [
-    {
-      "path": "02_supabase-ai-backend",
-      "envManager": "ms-python.python:venv",
-      "packageManager": "ms-python.python:pip"
-    }
-  ],
   "python.analysis.extraPaths": [
     "./05_llm-agent-orchestration/02_prompt-and-response-quality/02_structured-output-json/02_structured-output-",
     "./02_supabase-ai-backend/01_fastapi-backend/01_fastapi-project-setup/01_hello-"
