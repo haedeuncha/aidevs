@@ -1,3 +1,9 @@
+# 실행 방법:
+# 1) 터미널을 열고 이 파일이 있는 폴더로 이동합니다.
+#    cd c:\aidevs\03_supabase-ai-frontend\04_state-session-and-data\06_service-log-and-integration-check
+# 2) Streamlit 앱 실행
+#    streamlit run .\01_service-log-dashboard.py
+
 import os
 
 import httpx
