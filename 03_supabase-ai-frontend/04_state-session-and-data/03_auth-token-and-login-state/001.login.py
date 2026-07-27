@@ -10,6 +10,20 @@ def sign_in(user_id: str, password: str) -> bool:
     return user_id == "admin" and password == "1234"
 
 
+def get_age_group(age: int) -> str:
+    if age < 20:
+        return "10대 이하"
+    if age < 30:
+        return "20대"
+    if age < 40:
+        return "30대"
+    if age < 50:
+        return "40대"
+    if age < 60:
+        return "50대"
+    return "60대 이상"
+
+
 if "is_logged_in" not in st.session_state:
     st.session_state.is_logged_in = False
 if "survey_submitted" not in st.session_state:
@@ -33,21 +47,24 @@ if not st.session_state.is_logged_in:
             st.error("아이디 또는 비밀번호가 올바르지 않습니다. 다시 로그인해 주세요.")
 
 else:
-    st.title("📝 만족도 설문")
+    st.title("📊 나이별 선호도 조사")
+    st.caption("연령대별 관심 주제와 이용 성향을 조사합니다.")
 
     if not st.session_state.survey_submitted:
         with st.form("survey_form"):
             age = st.number_input("나이", min_value=1, max_value=120, value=20)
             name = st.text_input("이름")
-            opinion = st.text_area("서비스에 바라는 점")
-            job = st.selectbox("직업", ["학생", "직장인", "자영업", "기타"])
+            opinion = st.text_area("선호하는 이유 또는 의견")
+            platform = st.selectbox(
+                "주로 이용하는 플랫폼", ["모바일 앱", "웹사이트", "유튜브", "SNS", "기타"]
+            )
             interests = st.multiselect(
-                "관심 있는 주제 (한 가지만 선택)",
-                ["AI", "데이터 분석", "웹 개발", "디자인", "창업"],
+                "가장 선호하는 주제 (한 가지만 선택)",
+                ["AI·기술", "문화·예술", "건강·운동", "여행", "경제·재테크"],
                 max_selections=1,
             )
             agree = st.checkbox("개인정보 수집·이용에 동의합니다.")
-            score = st.slider("서비스 만족도", min_value=1, max_value=10, value=5)
+            score = st.slider("주당 이용 빈도", min_value=0, max_value=7, value=3)
             submitted = st.form_submit_button("설문 제출")
 
         if submitted:
@@ -59,9 +76,10 @@ else:
                 st.session_state.survey_result = {
                     "이름": name,
                     "나이": age,
-                    "직업": job,
-                    "관심 주제": interests[0] if interests else "선택 안 함",
-                    "서비스 만족도": f"{score} / 10",
+                    "연령대": get_age_group(age),
+                    "주요 이용 플랫폼": platform,
+                    "가장 선호하는 주제": interests[0] if interests else "선택 안 함",
+                    "주당 이용 빈도": f"{score}일",
                     "의견": opinion or "작성 안 함",
                 }
                 st.session_state.survey_submitted = True
