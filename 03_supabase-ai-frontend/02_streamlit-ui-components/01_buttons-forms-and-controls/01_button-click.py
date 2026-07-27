@@ -1,3 +1,9 @@
+# 실행 방법:
+# 1) 터미널을 열고 이 파일이 있는 폴더로 이동합니다.
+#    cd c:\aidevs\03_supabase-ai-frontend\02_streamlit-ui-components\01_buttons-forms-and-controls
+# 2) Streamlit 앱 실행
+#    streamlit run .\01_button-click.py
+
 import streamlit as st  # Python 코드로 웹 화면을 만들기 위해 Streamlit을 st라는 별칭으로 가져옵니다.
 
 st.title("버튼 클릭 예제")  # Streamlit 화면의 가장 큰 제목을 표시합니다.

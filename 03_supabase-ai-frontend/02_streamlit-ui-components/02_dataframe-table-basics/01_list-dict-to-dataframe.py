@@ -1,3 +1,9 @@
+# 실행 방법:
+# 1) 터미널을 열고 이 파일이 있는 폴더로 이동합니다.
+#    cd c:\aidevs\03_supabase-ai-frontend\02_streamlit-ui-components\02_dataframe-table-basics
+# 2) Streamlit 앱 실행
+#    streamlit run .\01_list-dict-to-dataframe.py
+
 import pandas as pd  # 목록 데이터를 표와 차트로 다루기 위해 pandas를 pd라는 별칭으로 가져옵니다.
 import streamlit as st  # Python 코드로 웹 화면을 만들기 위해 Streamlit을 st라는 별칭으로 가져옵니다.
 
