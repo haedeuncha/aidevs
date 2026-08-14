@@ -1,178 +1,191 @@
-# 05_llm-agent-orchestration
+# 05 LLM Agent Orchestration
 
-단일 에이전트 추론과 AI 오케스트레이션을 학습하는 과정입니다.
+LLM 호출을 구조화된 Agent 서비스로 확장하는 과정입니다. 각 기술을 작은 예제로 확인한 뒤 같은 기술을 여행·예약 도메인에 적용하고, 마지막에는 FastAPI Backend와 Streamlit Frontend로 연결합니다.
 
-이 과정에서는 OpenAI API와 로컬 Llama 호출 방식을 비교하고, 프롬프트 설계, Structured Output, Function Calling, Tool Use, MCP 개념, RAG, Memory, LangGraph 상태 흐름을 순서대로 연결합니다.
+개념 예제는 Mock으로 안정적으로 실행하고, 같은 요청을 OpenAI GPT, Google Gemini, Docker 기반 Ollama/Llama에 연결해 결과를 비교합니다. PostgreSQL/pgvector는 RAG와 장기 데이터에, Redis는 단기 상태·Cache·TTL에 사용합니다.
 
-05 과정의 Docker 사용 범위는 **Docker Desktop + `docker run`** 입니다. Docker Compose, Dockerfile, AWS 배포, GitHub Actions, 운영 자동화는 `07_multi-agent-service-ops`에서 다룹니다.
+## 이전 과정과 달라지는 점
 
-## 과정 방향
+`02`~`04`에서는 Supabase, Upstash, Render처럼 운영을 대신해 주는 Cloud 서비스를
+사용했습니다. `05`에서는 같은 역할의 일부를 내 PC의 Docker Container로 직접
+실행합니다. Cloud 서비스를 폐기하거나 대체하는 것이 아니라, Agent가 의존하는
+Database, Redis, LLM의 동작과 장애를 가까이에서 관찰하는 학습 단계입니다.
 
-앞의 `02`, `03`, `04`에서는 Supabase를 사용해 백엔드, 프론트엔드, 미니 프로젝트를 빠르게 만들었습니다. 05 과정에서는 Supabase 중심이 아니라, Agent가 직접 사용할 로컬 실행 도구를 Docker 컨테이너로 띄워 봅니다.
+| 이전에 사용한 기술 | 이전 과정에서 맡은 역할 | `05`에서 비교할 대상 | 새롭게 확인하는 내용 |
+| --- | --- | --- | --- |
+| Supabase | 관리형 PostgreSQL, Auth, RLS | Docker PostgreSQL/pgvector | DB 연결, Schema, Volume, Vector 검색 |
+| Upstash Redis | 관리형 Serverless Redis | Docker Redis | Key, TTL, 영속화, 재시작과 장애 |
+| Render | Backend를 실행하는 Cloud 배포 환경 | 로컬 Docker Container | Image, Container, Port, 실행 환경 격리 |
+| Streamlit | Python 기반 Frontend Framework | 로컬 Streamlit + 두 Agent API | UI는 유지하고 연결할 Backend를 선택 |
+| Gemini/OpenAI | Cloud LLM API | Ollama/Llama | Cloud API와 Local LLM의 속도·비용·기능 차이 |
+
+Supabase와 Upstash는 계정 생성, 업데이트, 백업, 가용성 같은 운영 부담을 줄여
+줍니다. 로컬 PostgreSQL과 Redis는 학생이 직접 시작·중지하고 데이터를 확인할 수
+있어 내부 동작을 학습하기 좋습니다. 실제 서비스에서는 요구사항에 따라 관리형
+Cloud 서비스와 직접 운영 방식을 선택하거나 함께 사용할 수 있습니다.
+
+## 왜 로컬 Docker를 사용하는가
+
+- 모든 학생이 같은 Image로 비슷한 실행 환경을 재현할 수 있습니다.
+- PostgreSQL, Redis, Ollama를 Windows에 각각 직접 설치하지 않고 격리해 실행합니다.
+- Container 중지, 재시작, 연결 실패 같은 장애 상황을 안전하게 연습할 수 있습니다.
+- API 사용량과 Cloud 비용 없이 Mock, Redis, PostgreSQL 실습을 반복할 수 있습니다.
+- Agent의 데이터가 LLM, Database, Cache 사이를 어떻게 이동하는지 직접 확인합니다.
+
+Docker를 사용해도 데이터 검증, 비밀정보 관리, 사용자 권한 검사가 자동으로
+해결되지는 않습니다. 또한 로컬 서비스는 학습용이므로 외부 네트워크에 공개하지
+않습니다.
+
+## 학습 흐름
 
 ```text
-Ollama 컨테이너      -> 선택 로컬 LLM 실습
-pgvector 컨테이너    -> PostgreSQL + pgvector 기반 RAG/장기 기억 실습
-Redis 컨테이너       -> 세션 메모리와 캐시 실습
+Local Docker 환경
+→ GPT·Gemini·Ollama/Llama Provider
+LLM과 Agent 구분
+→ Prompt와 Structured Output
+→ GPT 이미지 분석과 TTS 선택 확장
+→ Tool Use
+→ RAG
+→ Memory
+→ LangGraph Workflow
+→ Human Approval과 Safety
+→ 평가와 실행 추적
+→ 누적 Backend·Frontend 통합 Lab
 ```
 
-핵심은 Docker 운영이 아니라 **LLM이 도구를 호출하고, 여러 단계를 거쳐 판단하고, 상태를 유지하며, 검색 결과와 기억을 활용하는 구조**를 이해하는 것입니다.
+## 교육 원칙
 
-## 05와 07의 역할 구분
-
-```text
-05_llm-agent-orchestration
--> docker run으로 필요한 로컬 도구만 실행
--> Prompt, Tool, MCP, RAG, Memory, LangGraph 흐름 학습
-
-07_multi-agent-service-ops
--> Dockerfile, Docker Compose, Health Check, AWS, GitHub Actions
--> 서비스 운영, 배포, 자동 복구, 모니터링 학습
-```
-
-05에서는 여러 컨테이너를 하나의 Compose 파일로 묶지 않습니다. 컨테이너를 하나씩 실행하면서 Agent 실습에 필요한 도구의 역할을 이해합니다.
-
-## 수강생 진행 기준
-
-- 필수: OpenAI 기본 호출, Prompt 설계, Structured Output, Function Calling, Tool Use, RAG/Memory, LangGraph 상태 흐름을 실습합니다.
-- 기본 유지: Ollama Docker, MCP 개념, LangSmith 개념은 과정 안에 포함합니다.
-- 선택 심화: 간단한 MCP 서버, LangSmith tracing, Ollama 모델 비교, RAGAS 도구 사용은 진도와 수업 상황에 따라 다룹니다.
-- 다음 과정으로 넘어가기 전: 단일 Agent가 State, Tool, Memory, RAG 결과를 어떤 흐름으로 사용하는지 다이어그램이나 코드로 설명할 수 있어야 합니다.
-
-## 막혔을 때 바로 보기
-
-| 막히는 지점 | 확인 문서 |
-| --- | --- |
-| OpenAI API key, 비용, 호출 제한 | [Gemini/OpenAI 계정과 비용](../00_course-guide/02_setup-guides/08_gemini-openai-account-guide.md), [OpenAI 기본 호출](./01_llm-api-and-local-llm/01_openai-api-basic/README.md) |
-| Docker Desktop 또는 `docker run` 오류 | [Docker Desktop 설치 가이드](../00_course-guide/02_setup-guides/14_docker-desktop-guide.md), [Docker Desktop 설치 안내](./00_references/09_docker-desktop-install-for-beginners.md) |
-| pgvector 또는 Redis 연결 오류 | [SETUP.md](./SETUP.md), [공통 오류 정리](./00_references/07_common-errors-for-beginners.md) |
-| LangGraph 상태 흐름 이해가 어려움 | [LangGraph state flow](./06_langgraph-state-flow/README.md), [Tool/RAG node flow](./06_langgraph-state-flow/03_tool-and-rag-node-flow/README.md) |
-| 단원별 `.venv` 방식이 헷갈림 | [SETUP.md](./SETUP.md), [로컬 환경 체크리스트](./00_references/05_local-environment-checklist.md) |
-
-## 학습 목표
-
-- OpenAI API와 로컬 Llama 호출 방식의 차이를 설명할 수 있습니다.
-- 역할(Role), 지시문(Instruction), 맥락(Context) 기반 프롬프트를 설계할 수 있습니다.
-- CoT/ReAct 계열의 단계적 문제 해결 흐름을 안전한 방식으로 설계할 수 있습니다.
-- JSON Schema와 Pydantic 기반 Structured Output을 만들 수 있습니다.
-- Prompt Injection을 이해하고 입력 검증과 시스템 프롬프트 보안 기준을 적용할 수 있습니다.
-- Function Calling과 Tool Use 흐름을 구현할 수 있습니다.
-- LangChain의 ChatPromptTemplate, LCEL, `with_structured_output`을 필요한 만큼 사용할 수 있습니다.
-- MCP가 외부 도구 연결을 표준화하려는 방식임을 설명할 수 있습니다.
-- Embedding, PostgreSQL, pgvector, RAG, Hybrid Search, RRF의 기본 구조를 설명할 수 있습니다.
-- PostgreSQL Session Memory와 Vector Memory를 구분하고 결합할 수 있습니다.
-- LangGraph의 Node, Edge, State 구조로 Agent 실행 흐름을 구성할 수 있습니다.
-- Self-Reflection, Retry, Fallback, Tracing 관점에서 Agent 실행을 점검할 수 있습니다.
+1. 개념을 가장 작은 Python 예제로 먼저 확인합니다.
+2. 같은 기술을 여행·예약 예제에 적용합니다.
+3. 외부 API 없이 실행되는 Mock 모드를 기본으로 사용합니다.
+4. 각 핵심 개념 뒤에는 여행·예약 도메인의 실제 연동 예제를 실행합니다.
+5. 요청·응답 Schema를 먼저 정하고 Backend와 Frontend를 연결합니다.
+6. 실제 예약·결제·환불은 수행하지 않습니다.
+7. 변경 작업은 사용자의 승인을 받은 뒤 Mock Tool로 실행합니다.
 
 ## 과정 구조
 
-```text
-05_llm-agent-orchestration
-├─ README.md
-├─ SETUP.md
-├─ .env.example
-├─ requirements.txt
-├─ 00_references
-├─ 01_llm-api-and-local-llm
-├─ 02_prompt-and-response-quality
-├─ 03_langchain-minimal
-├─ 04_function-calling-and-tool-use
-├─ 05_rag-memory-and-vector-search
-├─ 06_langgraph-state-flow
-├─ 90_ai-assisted-agent-review-and-debugging
-└─ 99_final-agent-project
-```
-
-## 권장 학습 순서
-
-```text
-00_references
--> 01_llm-api-and-local-llm
--> 02_prompt-and-response-quality
--> 03_langchain-minimal
--> 04_function-calling-and-tool-use
--> 05_rag-memory-and-vector-search
--> 06_langgraph-state-flow
--> 90_ai-assisted-agent-review-and-debugging
--> 99_final-agent-project
-```
-
-## 단원 매핑
-
-| 교육 내용 | 주 단원 |
+| 폴더 | 학습 내용 |
 | --- | --- |
-| OpenAI API, Ollama, 로컬 LLM 비교 | `01_llm-api-and-local-llm` |
-| Role/Instruction/Context, CoT/ReAct, Prompt Injection | `02_prompt-and-response-quality` |
-| ChatPromptTemplate, LCEL, Structured Output | `03_langchain-minimal` |
-| Function Calling, Tool Use, LangChain Tool Binding, MCP | `04_function-calling-and-tool-use` |
-| Embedding, PostgreSQL, pgvector, RAG, Memory, RRF | `05_rag-memory-and-vector-search` |
-| LangGraph, Hybrid Memory, Self-Reflection, Tracing | `06_langgraph-state-flow` |
-| 오류 해결, AI 코드 리뷰, 디버깅 체크리스트 | `90_ai-assisted-agent-review-and-debugging` |
-| 복합 API 연계 일정 조정 Agent | `99_final-agent-project` |
+| `00_local-runtime` | Docker 기반 Ollama, PostgreSQL/pgvector, Redis |
+| `00_references` | 전체 학습 지도, 설계 원칙, 오류 해결 |
+| `01_llm-to-agent` | LLM, Workflow, Agent 비교와 OpenAI 멀티모달 선택 확장 |
+| `02_prompt-and-structured-output` | Prompt 구성과 Pydantic 응답 |
+| `03_tool-use` | Function Calling과 Tool 실행 |
+| `04_rag` | 문서 검색과 근거 기반 답변 |
+| `05_memory` | 사용자별 단기·장기 기억 |
+| `06_langgraph-workflow` | State, Node, Edge, 조건 분기 |
+| `07_human-approval-and-safety` | 승인, 권한, Prompt Injection 방어 |
+| `08_agent-evaluation-and-tracing` | 시나리오 평가와 실행 이력 |
+| `09_integrated-agent-lab` | `mini_agent_08_evaluation`로 전체 흐름을 실행·확장하는 통합 실습 |
 
-## 가상환경 기준
+## 예제 진행 방식
 
-05 과정은 단원별 `.venv` 방식을 우선 권장합니다. 단원별로 OpenAI SDK, LangChain, LangGraph, psycopg, redis, MCP 관련 패키지 사용 범위가 달라질 수 있기 때문입니다.
+각 단원은 가능한 한 다음 순서를 따릅니다.
 
-예를 들어 첫 단원을 시작할 때는 다음처럼 진행합니다.
-
-```powershell
-cd C:\aidev\05_llm-agent-orchestration\01_llm-api-and-local-llm
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -c "import sys; print(sys.executable)"
-python -m pip install --upgrade pip
-pip install openai python-dotenv httpx
+```text
+01_concept_example.py
+→ 02_travel_example.py
+→ 10_labs
+→ 20_assignments
 ```
 
-전체 과정을 하나의 가상환경에서 복습하고 싶다면 최상위 `requirements.txt`를 사용할 수 있습니다.
+여행 예제를 학습한 뒤 과제에서는 병원, 식당, 회의 일정, 공연 예매, 교육 상담 등 다른 도메인으로 변형합니다.
+
+실제 연동 단원은 다음 순서를 따릅니다.
+
+```text
+Mock 결과 확인
+→ GPT 연결
+→ Gemini 연결
+→ Ollama/Llama 연결
+→ 같은 Pydantic Schema로 비교
+→ PostgreSQL/pgvector·Redis 연결
+→ 장애와 fallback 확인
+```
+
+멀티 LLM은 초반 비교 예제로 끝나지 않고 다음 단원까지 같은 Provider 계약으로
+이어집니다.
+
+```text
+03 Tool Calling
+→ 06 Python/LangGraph 흐름 비교
+→ 08 동일 시나리오 평가
+→ 09 누적 Backend·Frontend 통합 실행
+```
+
+Provider가 바뀌어도 Pydantic Schema, Tool 권한 검사, Graph 흐름, 평가
+시나리오는 동일하게 유지합니다.
+
+## Lab 실행 전 Backend 빠른 확인
+
+각 `10_labs/README.md`의 `실행 위치`를 먼저 확인합니다. 작은 Python 예제는 대부분
+Backend 없이 실행하며, 실제 Provider 또는 완성 화면을 사용하는 Lab만 아래 Backend를
+먼저 실행합니다.
+
+| 단원 | 기본 Lab | 실제 연동·완성 화면에서 실행할 위치 |
+| --- | --- | --- |
+| 01 | Backend 불필요 | `C:\mini_agent_st\mini_agent_01_llm\backend` · Port 8000 |
+| 02 | Lab 1~3 불필요 | Lab 4: `mini_agent_02_structured_output\backend` · Port 8000 |
+| 03 | 실습 1~5 불필요 | 실습 6: `mini_agent_03_tool\backend` · Port 8000 |
+| 04 | 실습 1~3 불필요 | 실습 4는 Backend가 아니라 `C:\mini_agent_st\infra`의 PostgreSQL·Ollama 사용 |
+| 05 | 실습 1~5 불필요 | 실습 6~7은 Redis·PostgreSQL, 완성 화면은 `mini_agent_05_memory\backend` |
+| 06 | 실습 1~11 불필요 | 완성 화면: `mini_agent_06_langgraph\backend_langgraph` · Port 8001 |
+| 07 | Lab 1~6 불필요 | 완성 화면: `mini_agent_07_human_approval\backend_langgraph` · Port 8001 |
+| 08 | Lab 1~4 불필요 | Lab 5: `mini_agent_08_evaluation\backend_python` · Port 8000 |
+| 09 | 두 Backend 필요 | `backend_python` 8000 + `backend_langgraph` 8001 |
+
+Python 파일 맨 위의 `실행 전 준비` 주석도 같은 경로를 안내합니다.
+
+## 빠른 시작
+
+Docker가 아직 없어도 `APP_MODE=mock`, `STORAGE_MODE=memory`로 각 단원의 기본
+예제를 먼저 학습할 수 있습니다. pgvector, Redis, Ollama가 필요한 확장 실습에
+도달했을 때 [Docker 첫 사용 가이드](./00_local-runtime/00_docker-first-guide.md)부터
+진행합니다.
 
 ```powershell
-cd C:\aidev\05_llm-agent-orchestration
+cd C:\aidevs\05_llm-agent-orchestration
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -c "import sys; print(sys.executable)"
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-## Docker 실행 요약
+상세 환경 준비는 [SETUP.md](./SETUP.md)를 확인합니다.
+두 Backend는 모두 `app` 패키지 이름을 사용하므로 루트에서 한 번에 수집하지
+않고 [SETUP.md의 테스트 절차](./SETUP.md#8-테스트)처럼 Backend별 폴더에서
+각각 실행합니다.
 
-Docker Desktop을 먼저 실행한 뒤 PowerShell에서 확인합니다.
+## Docker 학습의 다음 단계
 
-```powershell
-docker --version
-docker ps
+`05`에서는 각 서비스를 `docker run`으로 하나씩 실행하며 Image, Container,
+Port, Volume을 배웁니다. `07_multi-agent-service-ops`에서는 여러 Container를
+Docker Compose로 함께 실행하고, 같은 Compose 구성을 Amazon EC2 한 대에 수동
+배포합니다. 이후 GitHub Actions, 관측성, 보안, 리소스 정리까지 운영 흐름으로
+확장합니다.
+
+```text
+05: docker run으로 서비스 하나씩 이해
+→ 07: Dockerfile과 Docker Compose로 여러 서비스 연결
+→ 07: GitHub Actions에서 Test·Compose 검사·Image Build
+→ 07: AWS EC2에서 Simple Compose 수동 배포와 리소스 정리
 ```
 
-Ollama는 선택 실습입니다.
+## 완료 기준
 
-```powershell
-docker run -d `
-  --name ollama-llm `
-  -p 11434:11434 `
-  -v ollama-data:/root/.ollama `
-  ollama/ollama:latest
-```
+- 일반 LLM 호출과 Agent를 구분할 수 있습니다.
+- Tool 선택과 Tool 실행을 분리할 수 있습니다.
+- RAG와 Memory의 역할을 구분할 수 있습니다.
+- LangGraph State와 분기·종료 조건을 설계할 수 있습니다.
+- 승인 없는 변경 Tool을 차단할 수 있습니다.
+- Mock 모드에서 Backend와 Frontend 통합 흐름을 실행할 수 있습니다.
+- GPT·Gemini·Ollama/Llama를 공통 Provider 계약으로 교체할 수 있습니다.
+- PostgreSQL/pgvector와 Redis를 목적에 맞게 구분해 연결할 수 있습니다.
+- 정상·정보 부족·Tool 실패·정책 위반 시나리오를 평가할 수 있습니다.
+- OpenAI 이미지 입력과 TTS를 일반 멀티 LLM 계약과 분리해 사용할 수 있습니다.
 
-pgvector는 RAG와 장기 기억 실습에 사용합니다.
+## 다음 과정
 
-```powershell
-docker run -d `
-  --name aidev-pgvector `
-  -p 5433:5432 `
-  -e POSTGRES_DB=agent_db `
-  -e POSTGRES_USER=agent_user `
-  -e POSTGRES_PASSWORD=agent_password `
-  -v aidev-pgvector-data:/var/lib/postgresql/data `
-  pgvector/pgvector:pg16
-```
-
-Redis는 세션 메모리와 캐시 실습에 사용합니다.
-
-```powershell
-docker run -d `
-  --name aidev-redis `
-  -p 6379:6379 `
-  redis:7
-```
+`06_llm-agent-mini-project`에서는 이 과정의 기능을 새로운 도메인에 적용해 3일간 팀 프로젝트를 진행합니다.
