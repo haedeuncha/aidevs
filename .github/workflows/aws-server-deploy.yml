@@ -1,16 +1,28 @@
-name: Course Server Deployment
+name: Weather MCP CI/CD
 
+# main에 weather 프로젝트 변경이 push되면: 테스트 -> AWS 서버(SSH) 배포 -> 헬스체크
 on:
   push:
     branches:
       - main
     paths:
-      - '07_multi-agent-service-ops/**'
+      - '07_multi-agent-service-ops/00_runtime-and-deployment/05_weather-mcp-deployment-project/**'
       - '.github/workflows/aws-server-deploy.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: weather-mcp-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_DIR: 07_multi-agent-service-ops/00_runtime-and-deployment/05_weather-mcp-deployment-project
+  REMOTE_DIR: weather-mcp-deployment-project
+
 jobs:
-  validate:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -22,71 +34,100 @@ jobs:
           python-version: '3.12'
 
       - name: Python syntax check
-        run: |
-          python -m compileall \
-            07_multi-agent-service-ops \
-            --invalidation-mode=importlib
+        run: python -m compileall -q "$PROJECT_DIR"
 
       - name: Validate Docker Compose config
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose config --quiet
+
+      - name: Build images
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose build
+
+      # 실제로 3개 컨테이너를 띄워 MCP -> Backend -> Frontend 연결까지 확인한다.
+      - name: Smoke test (compose up)
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           set -e
-          if [ -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" ]; then
-            docker compose -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" config >/dev/null
-          else
-            echo "Compose example not found in this branch; skip validation."
-          fi
+          docker compose up -d --wait --wait-timeout 120
+          curl --fail --silent --show-error http://127.0.0.1:8010/health
+          curl --fail --silent --show-error http://127.0.0.1:8000/health
+          curl --fail --silent --show-error http://127.0.0.1:8000/weather
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors \
+            http://127.0.0.1:8501/_stcore/health
+
+      - name: Show logs on failure
+        if: failure()
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose down -v
 
   deploy:
-    needs: validate
-    runs-on: ubuntu-latest
+    needs: ci
     if: github.ref == 'refs/heads/main'
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      ECR_REPOSITORY_NAME: ${{ secrets.ECR_REPOSITORY_NAME }}
-      IMAGE_TAG: ${{ github.sha }}
-      APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Log in to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image for deployment
+      - name: Check deploy secrets
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+          AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          AWS_SSH_KNOWN_HOSTS: ${{ secrets.AWS_SSH_KNOWN_HOSTS }}
         run: |
-          docker build \
-            -t "$ECR_REPOSITORY_NAME:$IMAGE_TAG" \
-            -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG" \
-            07_multi-agent-service-ops/02_service-deployment-and-automation/01_docker-service-packaging
+          missing=0
+          for name in AWS_HOST AWS_USER AWS_SSH_PRIVATE_KEY AWS_SSH_KNOWN_HOSTS; do
+            if [ -z "${!name}" ]; then echo "::error::Secret $name is not set"; missing=1; fi
+          done
+          exit $missing
 
-      - name: Push Docker image to ECR
+      - name: Configure SSH
+        env:
+          AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          AWS_SSH_KNOWN_HOSTS: ${{ secrets.AWS_SSH_KNOWN_HOSTS }}
         run: |
-          docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$AWS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-      - name: Update App Runner service
+      # .env 같은 비밀 파일은 저장소에 없으므로 서버로 복사되지 않는다.
+      - name: Upload project to server
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_USER: ${{ secrets.AWS_USER }}
         run: |
           set -e
-          if [ -z "$APP_RUNNER_SERVICE_ARN" ]; then
-            echo "APP_RUNNER_SERVICE_ARN secret is not set. Skipping deployment."
-            exit 0
-          fi
+          ssh -i ~/.ssh/deploy_key "$AWS_USER@$AWS_HOST" "mkdir -p ~/$REMOTE_DIR"
+          tar -C "$PROJECT_DIR" -czf - . | \
+            ssh -i ~/.ssh/deploy_key "$AWS_USER@$AWS_HOST" "tar -C ~/$REMOTE_DIR -xzf -"
 
-          aws apprunner update-service \
-            --service-arn "$APP_RUNNER_SERVICE_ARN" \
-            --source-configuration "imageRepository={imageIdentifier=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG,imageRepositoryType=ECR,imageConfiguration={port=8000}}" \
-            --region "$AWS_REGION"
+      - name: Build, run and verify on server
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$AWS_USER@$AWS_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
+          set -e
+          cd ~/"$1"
+          docker compose config --quiet
+          docker compose up -d --build --remove-orphans
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors http://127.0.0.1:8000/health
+          curl --fail --silent --show-error http://127.0.0.1:8000/weather
+          docker compose ps
+          docker image prune -f >/dev/null
+          REMOTE
 
       - name: Deployment summary
         run: |
-          echo "Deployment image: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG"
-          echo "App Runner service ARN: ${APP_RUNNER_SERVICE_ARN:-not-configured}"
+          echo "### Weather MCP deployed :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- backend: http://<AWS_HOST>:8000/health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- frontend: http://<AWS_HOST>:8501" >> "$GITHUB_STEP_SUMMARY"

@@ -9,6 +9,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate-python-and-docker:
     runs-on: ubuntu-latest
@@ -22,22 +25,27 @@ jobs:
         with:
           python-version: '3.12'
 
+      # --invalidation-mode 값은 checked-hash / timestamp / unchecked-hash만 허용된다.
+      # 문법 검사만 하면 되므로 옵션 없이 -q(조용히)로 실행한다.
       - name: Python syntax check
         run: |
-          python -m compileall \
+          python -m compileall -q \
             07_multi-agent-service-ops \
-            08_multi-agent-service-mini-project \
-            --invalidation-mode=importlib
+            08_multi-agent-service-mini-project
 
       - name: Validate Docker Compose config
         run: |
           set -e
-          if [ -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" ]; then
-            echo "Checking compose file: 07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml"
-            docker compose -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" config >/dev/null
-          else
-            echo "No docker-compose.yml found in the course sample project. Skipping compose validation."
-          fi
+          for f in \
+            "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" \
+            "07_multi-agent-service-ops/00_runtime-and-deployment/05_weather-mcp-deployment-project/compose.yml"; do
+            if [ -f "$f" ]; then
+              echo "Checking compose file: $f"
+              docker compose -f "$f" config --quiet
+            else
+              echo "Skip (not found): $f"
+            fi
+          done
 
       - name: Docker build validation
         run: |
