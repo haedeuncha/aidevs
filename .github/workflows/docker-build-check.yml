@@ -1,0 +1,46 @@
+name: Course CI Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  validate-python-and-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python syntax check
+        run: |
+          python -m compileall \
+            07_multi-agent-service-ops \
+            08_multi-agent-service-mini-project \
+            --invalidation-mode=importlib
+
+      - name: Validate Docker Compose config
+        run: |
+          set -e
+          if [ -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" ]; then
+            echo "Checking compose file: 07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml"
+            docker compose -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" config >/dev/null
+          else
+            echo "No docker-compose.yml found in the course sample project. Skipping compose validation."
+          fi
+
+      - name: Docker build validation
+        run: |
+          set -e
+          docker build -t aidevs-course-sample \
+            07_multi-agent-service-ops/02_service-deployment-and-automation/01_docker-service-packaging
