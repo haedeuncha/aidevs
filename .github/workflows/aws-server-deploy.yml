@@ -1,0 +1,92 @@
+name: Course Server Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '07_multi-agent-service-ops/**'
+      - '.github/workflows/aws-server-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python syntax check
+        run: |
+          python -m compileall \
+            07_multi-agent-service-ops \
+            --invalidation-mode=importlib
+
+      - name: Validate Docker Compose config
+        run: |
+          set -e
+          if [ -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" ]; then
+            docker compose -f "07_multi-agent-service-ops/02_service-deployment-and-automation/02_docker-compose-multi-service/docker-compose.yml" config >/dev/null
+          else
+            echo "Compose example not found in this branch; skip validation."
+          fi
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY_NAME: ${{ secrets.ECR_REPOSITORY_NAME }}
+      IMAGE_TAG: ${{ github.sha }}
+      APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image for deployment
+        run: |
+          docker build \
+            -t "$ECR_REPOSITORY_NAME:$IMAGE_TAG" \
+            -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG" \
+            07_multi-agent-service-ops/02_service-deployment-and-automation/01_docker-service-packaging
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG"
+
+      - name: Update App Runner service
+        run: |
+          set -e
+          if [ -z "$APP_RUNNER_SERVICE_ARN" ]; then
+            echo "APP_RUNNER_SERVICE_ARN secret is not set. Skipping deployment."
+            exit 0
+          fi
+
+          aws apprunner update-service \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --source-configuration "imageRepository={imageIdentifier=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG,imageRepositoryType=ECR,imageConfiguration={port=8000}}" \
+            --region "$AWS_REGION"
+
+      - name: Deployment summary
+        run: |
+          echo "Deployment image: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$IMAGE_TAG"
+          echo "App Runner service ARN: ${APP_RUNNER_SERVICE_ARN:-not-configured}"
