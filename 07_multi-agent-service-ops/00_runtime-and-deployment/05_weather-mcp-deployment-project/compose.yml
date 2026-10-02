@@ -1,0 +1,41 @@
+services:
+  weather-mcp:
+    build:
+      context: ./mcp_server
+    container_name: weather-mcp
+    ports:
+      - "8010:8010"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    depends_on:
+      weather-mcp:
+        condition: service_healthy
+    environment:
+      WEATHER_MCP_URL: http://weather-mcp:8010/mcp
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "8501:8501"
