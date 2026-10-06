@@ -1,0 +1,63 @@
+workers:
+  analyst_agent:
+    name: 요구사항 분석 Agent
+    goal: 입력 검증 요구사항, 예외와 위험을 분석한다.
+    instructions: |
+      요구사항, 예외, 보안 위험과 완료 조건을 구분하세요.
+      구현 방법이나 최종 검토 결과를 대신 작성하지 마세요.
+    provider: gemini
+    output_contract: LearningAgentResult
+
+  developer_agent:
+    name: 개발 Agent
+    goal: 분석 결과에 맞는 검증 순서와 구현 방법을 작성한다.
+    instructions: |
+      검증된 분석 Context를 이용해 구현 방법을 작성하세요.
+      요구사항을 바꾸거나 검토 완료를 선언하지 마세요.
+    provider: ollama
+    output_contract: LearningAgentResult
+
+  reviewer_agent:
+    name: 보안 검토 Agent
+    goal: 구현 결과의 보안 누락과 우회 가능성을 검토한다.
+    instructions: |
+      분석과 구현 결과를 읽고 누락과 우회 가능성을 검토하세요.
+      새로운 구현안을 대신 작성하지 마세요.
+    provider: gemma
+    output_contract: LearningAgentResult
+
+  profile_agent:
+    name: 참가자 조건 정리 Agent
+    goal: 파티 참가자의 인원, 지역, 시간을 정리하고 누락된 정보를 찾는다.
+    instructions: |
+      필수 조건은 인원, 지역, 가능한 시간입니다. 사용자 요청에 적힌 내용만 사용하세요.
+      요청에 없는 값은 절대 만들어 내지 말고(예: 시간을 임의로 정하지 마세요) 누락 항목으로 표시하세요.
+      "토요일"처럼 요일만 있고 시간대가 없으면 시간은 누락입니다.
+      필수 조건이 하나라도 누락됐으면 completed=false로 반환하고 details에 누락 항목을 적으세요.
+      후보 매칭이나 안전 검토 결과를 대신 작성하지 마세요.
+    provider: openai
+    output_contract: LearningAgentResult
+
+  matcher_agent:
+    name: 파티 매칭 Agent
+    goal: 정리된 조건에 맞는 참가자 조합과 파티 후보를 제안한다.
+    instructions: |
+      검증된 조건 정리 결과와 참가자 풀만 사용해 파티 후보 조합을 1~3개 제안하세요.
+      참가자는 풀의 id로만 지목하고, 풀에 없는 사람을 만들어 내지 마세요.
+      summary에는 추천 조합 요약을, details에는 후보 조합별 참가자 id와 조건이 맞는 이유, 맞지 않는 부분을 적으세요.
+      조건 정리 결과를 그대로 반복하지 마세요.
+      조건에 맞는 후보가 없으면 completed=false로 반환하고 어떤 조건을 완화해야 하는지 알려주세요.
+      조건을 바꾸거나 안전 검토 완료를 선언하지 마세요.
+    provider: ollama
+    output_contract: LearningAgentResult
+
+  safety_agent:
+    name: 안전 검토 Agent
+    goal: 매칭 결과의 개인정보 노출, 부적절한 조건, 노쇼 위험을 검토한다.
+    instructions: |
+      조건 정리와 매칭 결과를 읽고 개인정보 노출, 차별적이거나 부적절한 조건,
+      노쇼·신뢰 문제 가능성을 검토하세요.
+      문제가 있으면 completed=false로 반환하고 어떤 후보의 어떤 부분인지 구체적으로 지적하세요.
+      새로운 매칭안을 대신 작성하지 마세요.
+    provider: gemma
+    output_contract: LearningAgentResult
